@@ -1,0 +1,49 @@
+name: Add TVOO completion percentage
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-dashboard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add completion percentage
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_html = '<div class="kpi-note">Progress 100%</div>'
+          new_html = '<div class="kpi-note">Progress 100%<br><span id="completionRate" style="font-weight:800;color:#0b8e49">0.00% selesai</span></div>'
+          if old_html in s and 'id="completionRate"' not in s:
+              s = s.replace(old_html, new_html, 1)
+
+          old_js = "document.getElementById('totalCount').textContent=allData.length;document.getElementById('sentCount').textContent=sent;document.getElementById('doneCount').textContent=done;document.getElementById('pendingCount').textContent=pending"
+          new_js = "document.getElementById('totalCount').textContent=allData.length;document.getElementById('sentCount').textContent=sent;document.getElementById('doneCount').textContent=done;document.getElementById('pendingCount').textContent=pending;const completion=allData.length?(done/allData.length*100).toFixed(2):'0.00';document.getElementById('completionRate').textContent=completion+'% selesai'"
+          if old_js in s and "textContent=completion+'% selesai'" not in s:
+              s = s.replace(old_js, new_js, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit dashboard change
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No changes needed."
+            exit 0
+          fi
+          git commit -m "Show TVOO completion percentage"
+          git push
