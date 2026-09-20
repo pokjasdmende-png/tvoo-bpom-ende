@@ -136,10 +136,7 @@ function load(){
    .then(r=>{if(!r.ok)throw Error('Google Sheets tidak dapat diakses');return r.text()})
    .then(t=>{let a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<0)throw Error('Format data Google Sheets tidak dikenali');return JSON.parse(t.slice(a,b+1));});
 
- const startYear=currentYear;
- const nextYear=currentYear+1;
- const yearQuery="select * where A >= datetime '"+startYear+"-01-01 00:00:00' and A < datetime '"+nextYear+"-01-01 00:00:00'";
- Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET,yearQuery)])
+ Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET)])
  .then(([rtl,asp])=>{
    let rows=rtl.table&&rtl.table.rows?rtl.table.rows:[];
    allData=rows.map(r=>{let c=r.c||[],cell=i=>{let x=c[i];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''};
