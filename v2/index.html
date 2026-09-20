@@ -107,14 +107,20 @@ function renderQuarterly(){
  const year=currentYear;
  const q=[{name:'Triwulan I',months:'Januari–Maret'},{name:'Triwulan II',months:'April–Juni'},{name:'Triwulan III',months:'Juli–September'},{name:'Triwulan IV',months:'Oktober–Desember'}];
  const data=q.map(x=>({name:x.name,months:x.months,total:0,done:0,process:0,pending:0}));
+ // Total per triwulan mengikuti sumber utama aspirasi: Form Responses 1 (Timestamp kolom A).
+ aspirationData.forEach(v=>{
+   const d=parseDate(v); if(!d||d.getFullYear()!==year)return;
+   data[Math.floor(d.getMonth()/3)].total++;
+ });
+ // Status tindak lanjut mengikuti RTL TVOO.
  allData.forEach(x=>{
    const d=parseDate(x.tanggal); if(!d||d.getFullYear()!==year)return;
    const idx=Math.floor(d.getMonth()/3),n=prog(x.progress);
-   data[idx].total++;
    if(n>=100)data[idx].done++;
-   else if(n>0)data[idx].process++;
-   else data[idx].pending++;
+   else if(n>=50)data[idx].process++;
  });
+ // Aspirasi yang belum mendapat arahan = total aspirasi masuk - yang sudah 100%.
+ data.forEach(x=>{x.pending=Math.max(0,x.total-x.done);});
  const max=Math.max(1,...data.map(x=>x.total));
  document.getElementById('quarterGrid').innerHTML=data.map(x=>{
    return '<div class="quarter-card"><div class="quarter-title">'+x.name+'</div><div class="quarter-value">'+x.total+'</div><div class="quarter-meta">'+x.months+'<br>✓ '+x.done+' selesai &nbsp; • &nbsp; '+x.process+' dalam proses &nbsp; • &nbsp; '+x.pending+' belum ditindaklanjuti</div><div class="quarter-bar"><div class="quarter-fill" style="width:'+Math.min(100,x.total/max*100)+'%"></div></div></div>';
@@ -123,7 +129,7 @@ function renderQuarterly(){
    const pct=x.total?x.done/x.total*100:0;
    return '<tr><td><strong>'+x.name+'</strong><br><span style="font-size:11px;color:#667386">'+x.months+'</span></td><td>'+x.total+'</td><td>'+x.pending+'</td><td>'+x.process+'</td><td>'+x.done+'</td><td>'+pct.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+'%</td></tr>';
  }).join('');
- document.getElementById('quarterNote').innerHTML='Laporan Triwulan '+year+' • TW I: Januari–Maret • TW II: April–Juni • TW III: Juli–September • TW IV: Oktober–Desember. Status: 0% = belum ditindaklanjuti, >0% s.d. <100% = dalam proses, 100% = telah mendapat arahan/selesai.';
+ document.getElementById('quarterNote').innerHTML='Laporan Triwulan '+year+' • TW I: Januari–Maret • TW II: April–Juni • TW III: Juli–September • TW IV: Oktober–Desember. Total aspirasi mengikuti Form Responses 1; status tindak lanjut mengikuti RTL TVOO. Status 0% = belum ditindaklanjuti, 50–99% = telah disampaikan/dalam proses, 100% = telah mendapat arahan.';
 }
 function load(){
  const readSheet=(id,sheet,query='')=>fetch('https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json&sheet='+encodeURIComponent(sheet)+(query?'&tq='+encodeURIComponent(query):''))
