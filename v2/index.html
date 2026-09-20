@@ -65,8 +65,9 @@ footer{text-align:center;color:#6d7888;font-size:11px;padding:17px 0 0;line-heig
 </div>
 
 <script>
-let allData=[];
+let allData=[],aspirationData=[],currentYear=new Date().getFullYear();
 const ID='1f3dmcJCgDkxYH7P6C8Sy6DokzveKuk6G_99429Z32fc',SHEET='RTL TVOO';
+const ASP_ID='1sUPqHsM7UnzVThFQYXyFEai9HM3DQBGS0yya7LanGDY',ASP_SHEET='Form Responses 1';
 
 function prog(v){if(v===null||v===undefined||v==='')return 0;let n=parseFloat(String(v).replace(',','.').replace('%','').trim());if(isNaN(n))return 0;if(n>=0&&n<=1)n*=100;return Math.max(0,Math.min(100,Math.round(n)))}
 function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;')}
@@ -81,13 +82,14 @@ function parseDate(v){
   return null;
 }
 function update(){
- let t=allData.length,d=0,s=0,p=0;
+ let t=aspirationData.length,d=0,s=0,p=0;
  allData.forEach(x=>{let n=prog(x.progress);if(n>=100)d++;else if(n>=50)s++;else p++});
  document.getElementById('totalCount').textContent=t;
  document.getElementById('sentCount').textContent=s;
  document.getElementById('doneCount').textContent=d;
  document.getElementById('pendingCount').textContent=p;
  document.getElementById('yearlyCompletionPercent').textContent=(t?d/t*100:0).toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';
+ document.querySelector('.total .kpi-note').textContent='Aspirasi masuk tahun '+currentYear;
  renderQuarterly();
 }
 function toggle(id){document.getElementById(id).classList.toggle('open')}
@@ -98,7 +100,7 @@ function render(){
  document.getElementById('listFooter').textContent='Menampilkan '+v.length+' dari '+allData.length+' aspirasi dengan progress 100%';
 }
 function renderQuarterly(){
- const year=new Date().getFullYear();
+ const year=currentYear;
  const q=[{name:'Triwulan I',months:'Januari–Maret'},{name:'Triwulan II',months:'April–Juni'},{name:'Triwulan III',months:'Juli–September'},{name:'Triwulan IV',months:'Oktober–Desember'}];
  const data=q.map(x=>({name:x.name,months:x.months,total:0,done:0,process:0,pending:0}));
  allData.forEach(x=>{
@@ -120,14 +122,21 @@ function renderQuarterly(){
  document.getElementById('quarterNote').innerHTML='Laporan Triwulan '+year+' • TW I: Januari–Maret • TW II: April–Juni • TW III: Juli–September • TW IV: Oktober–Desember. Status: 0% = belum ditindaklanjuti, >0% s.d. <100% = dalam proses, 100% = telah mendapat arahan/selesai.';
 }
 function load(){
- let u='https://docs.google.com/spreadsheets/d/'+ID+'/gviz/tq?tqx=out:json&sheet='+encodeURIComponent(SHEET);
- fetch(u).then(r=>{if(!r.ok)throw Error('Google Sheets tidak dapat diakses');return r.text()})
- .then(t=>{
-   let a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<0)throw Error('Format data Google Sheets tidak dikenali');
-   let j=JSON.parse(t.slice(a,b+1)),rows=j.table&&j.table.rows?j.table.rows:[];
+ const readSheet=(id,sheet)=>fetch('https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json&sheet='+encodeURIComponent(sheet))
+   .then(r=>{if(!r.ok)throw Error('Google Sheets tidak dapat diakses');return r.text()})
+   .then(t=>{let a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<0)throw Error('Format data Google Sheets tidak dikenali');return JSON.parse(t.slice(a,b+1));});
+
+ Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET)])
+ .then(([rtl,asp])=>{
+   let rows=rtl.table&&rtl.table.rows?rtl.table.rows:[];
    allData=rows.map(r=>{let c=r.c||[],cell=i=>{let x=c[i];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''};
      return{tanggal:fmt(cell(0)),aspirasi:cell(1),tindakLanjut:cell(2),catatan:cell(3),progress:cell(4),status:cell(5)}
-   }).filter(x=>String(x.aspirasi||'').trim()!=='');
+   }).filter(x=>String(x.aspirasi||'').trim()!=='' && parseDate(x.tanggal)?.getFullYear()===currentYear);
+
+   let ar=asp.table&&asp.table.rows?asp.table.rows:[];
+   aspirationData=ar.map(r=>{let c=r.c||[],x=c[0];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''})
+     .filter(v=>{let d=parseDate(v);return d&&d.getFullYear()===currentYear;});
+
    update();render();
  }).catch(e=>{document.getElementById('list').innerHTML='<div class="empty">Gagal memuat data: '+esc(e.message||e)+'</div>';document.getElementById('listFooter').textContent=''});
 }
