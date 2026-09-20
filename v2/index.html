@@ -142,10 +142,13 @@ function load(){
    // Hanya Total Aspirasi yang menggunakan sumber ini.
    aspirationData=ar.map(r=>{
      let c=r.c||[],x=c[0];
-     return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):'';
+     if(!x)return null;
+     // Prioritaskan nilai mentah (v) untuk Timestamp agar tahun tidak terpengaruh format tampilan.
+     return x.v!==undefined&&x.v!==null&&x.v!==''?x.v:(x.f!==undefined&&x.f!==null?x.f:'');
    }).filter(v=>{
+     if(v===null||v===undefined||String(v).trim()==='')return false;
      let d=parseDate(v);
-     return d&&d.getFullYear()===currentYear;
+     return d && d.getFullYear()===currentYear;
    });
 
    update();render();
