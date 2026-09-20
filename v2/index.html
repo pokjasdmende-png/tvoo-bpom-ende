@@ -75,10 +75,14 @@ function fmt(v){if(!v)return '';let s=String(v),m=s.match(/^Date\((\d+),(\d+),(\
 function parseDate(v){
   if(v instanceof Date&&!isNaN(v)) return v;
   let s=String(v||'').trim();
-  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  // Menangani tanggal biasa maupun Timestamp Google Form (tanggal + jam)
+  let m=s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})(?:[ T].*)?$/);
   if(m)return new Date(+m[3],+m[2]-1,+m[1]);
-  m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  m=s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})(?:[ T].*)?$/);
   if(m)return new Date(+m[1],+m[2]-1,+m[3]);
+  // Format Google Visualization: Date(2026,8,20,12,30,0)
+  m=s.match(/^Date\((\d+),(\d+),(\d+)(?:,(\d+),(\d+),(\d+))?\)$/);
+  if(m)return new Date(+m[1],+m[2],+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
   return null;
 }
 function update(){
@@ -134,8 +138,15 @@ function load(){
    }).filter(x=>String(x.aspirasi||'').trim()!=='' && parseDate(x.tanggal)?.getFullYear()===currentYear);
 
    let ar=asp.table&&asp.table.rows?asp.table.rows:[];
-   aspirationData=ar.map(r=>{let c=r.c||[],x=c[0];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''})
-     .filter(v=>{let d=parseDate(v);return d&&d.getFullYear()===currentYear;});
+   // Form Responses 1: kolom A adalah Timestamp.
+   // Hanya Total Aspirasi yang menggunakan sumber ini.
+   aspirationData=ar.map(r=>{
+     let c=r.c||[],x=c[0];
+     return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):'';
+   }).filter(v=>{
+     let d=parseDate(v);
+     return d&&d.getFullYear()===currentYear;
+   });
 
    update();render();
  }).catch(e=>{document.getElementById('list').innerHTML='<div class="empty">Gagal memuat data: '+esc(e.message||e)+'</div>';document.getElementById('listFooter').textContent=''});
