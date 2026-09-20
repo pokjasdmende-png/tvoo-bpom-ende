@@ -126,11 +126,14 @@ function renderQuarterly(){
  document.getElementById('quarterNote').innerHTML='Laporan Triwulan '+year+' • TW I: Januari–Maret • TW II: April–Juni • TW III: Juli–September • TW IV: Oktober–Desember. Status: 0% = belum ditindaklanjuti, >0% s.d. <100% = dalam proses, 100% = telah mendapat arahan/selesai.';
 }
 function load(){
- const readSheet=(id,sheet)=>fetch('https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json&sheet='+encodeURIComponent(sheet))
+ const readSheet=(id,sheet,query='')=>fetch('https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json&sheet='+encodeURIComponent(sheet)+(query?'&tq='+encodeURIComponent(query):''))
    .then(r=>{if(!r.ok)throw Error('Google Sheets tidak dapat diakses');return r.text()})
    .then(t=>{let a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<0)throw Error('Format data Google Sheets tidak dikenali');return JSON.parse(t.slice(a,b+1));});
 
- Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET)])
+ const startYear=currentYear;
+ const nextYear=currentYear+1;
+ const yearQuery="select A where A >= datetime '"+startYear+"-01-01 00:00:00' and A < datetime '"+nextYear+"-01-01 00:00:00'";
+ Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET,yearQuery)])
  .then(([rtl,asp])=>{
    let rows=rtl.table&&rtl.table.rows?rtl.table.rows:[];
    allData=rows.map(r=>{let c=r.c||[],cell=i=>{let x=c[i];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''};
