@@ -132,7 +132,7 @@ function load(){
 
  const startYear=currentYear;
  const nextYear=currentYear+1;
- const yearQuery="select A where A >= datetime '"+startYear+"-01-01 00:00:00' and A < datetime '"+nextYear+"-01-01 00:00:00'";
+ const yearQuery="select * where A >= datetime '"+startYear+"-01-01 00:00:00' and A < datetime '"+nextYear+"-01-01 00:00:00'";
  Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET,yearQuery)])
  .then(([rtl,asp])=>{
    let rows=rtl.table&&rtl.table.rows?rtl.table.rows:[];
@@ -143,15 +143,19 @@ function load(){
    let ar=asp.table&&asp.table.rows?asp.table.rows:[];
    // Form Responses 1: kolom A adalah Timestamp.
    // Hanya Total Aspirasi yang menggunakan sumber ini.
-   aspirationData=ar.map(r=>{
-     let c=r.c||[],x=c[0];
-     if(!x)return null;
-     // Prioritaskan nilai mentah (v) untuk Timestamp agar tahun tidak terpengaruh format tampilan.
-     return x.v!==undefined&&x.v!==null&&x.v!==''?x.v:(x.f!==undefined&&x.f!==null?x.f:'');
-   }).filter(v=>{
-     if(v===null||v===undefined||String(v).trim()==='')return false;
-     let d=parseDate(v);
-     return d && d.getFullYear()===currentYear;
+   aspirationData=ar.filter(r=>{
+     const cells=r.c||[];
+     const ts=cells[0];
+     if(!ts)return false;
+     const raw=ts.v!==undefined&&ts.v!==null&&ts.v!==''?ts.v:(ts.f!==undefined&&ts.f!==null?ts.f:'');
+     const d=parseDate(raw);
+     if(!d || d.getFullYear()!==currentYear)return false;
+     // Hanya menghitung respons yang benar-benar berisi data selain Timestamp.
+     // Baris kosong/test yang hanya memiliki Timestamp tidak dihitung sebagai aspirasi.
+     return cells.slice(1).some(x=>x && String(x.v!==undefined&&x.v!==null?x.v:(x.f||'')).trim()!=='');
+   }).map(r=>{
+     const ts=(r.c||[])[0];
+     return ts.v!==undefined&&ts.v!==null&&ts.v!==''?ts.v:(ts.f!==undefined&&ts.f!==null?ts.f:'');
    });
 
    update();render();
