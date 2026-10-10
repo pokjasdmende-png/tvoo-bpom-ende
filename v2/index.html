@@ -65,7 +65,7 @@ footer{text-align:center;color:#6d7888;font-size:11px;padding:17px 0 0;line-heig
 </div>
 
 <script>
-let allData=[],aspirationData=[],reportAllData=[],reportAspirationData=[],currentYear=new Date().getFullYear();
+let allData=[],aspirationData=[],currentYear=new Date().getFullYear();
 const ID='1f3dmcJCgDkxYH7P6C8Sy6DokzveKuk6G_99429Z32fc',SHEET='RTL TVOO';
 const ASP_ID='1sUPqHsM7UnzVThFQYXyFEai9HM3DQBGS0yya7LanGDY',ASP_SHEET='Form Responses 1';
 
@@ -85,7 +85,6 @@ function parseDate(v){
   if(m)return new Date(+m[1],+m[2],+m[3],+(m[4]||0),+(m[5]||0),+(m[6]||0));
   return null;
 }
-function realizationDate(v){const d=parseDate(v);return d?new Date(d.getFullYear(),d.getMonth()+1,1):null;}
 function update(){
  let t=aspirationData.length,d=0,s=0;
  allData.forEach(x=>{let n=prog(x.progress);if(n>=100)d++;else if(n>=50)s++});
@@ -108,15 +107,14 @@ function renderQuarterly(){
  const year=currentYear;
  const q=[{name:'Triwulan I',months:'Januari–Maret'},{name:'Triwulan II',months:'April–Juni'},{name:'Triwulan III',months:'Juli–September'},{name:'Triwulan IV',months:'Oktober–Desember'}];
  const data=q.map(x=>({name:x.name,months:x.months,total:0,done:0,process:0,pending:0}));
- // Setiap aspirasi direalisasikan pada bulan setelah tanggal masuk (jadwal penyampaian maksimal tanggal 10 bulan berikutnya).
- // Karena itu, pengelompokan triwulan menggunakan bulan realisasi, bukan bulan pengiriman form.
- reportAspirationData.forEach(v=>{
-   const d=realizationDate(v); if(!d||d.getFullYear()!==year)return;
+ // Total per triwulan mengikuti sumber utama aspirasi: Form Responses 1 (Timestamp kolom A).
+ aspirationData.forEach(v=>{
+   const d=parseDate(v); if(!d||d.getFullYear()!==year)return;
    data[Math.floor(d.getMonth()/3)].total++;
  });
- // Status RTL dikelompokkan pada bulan realisasi yang sama (tanggal aspirasi + 1 bulan).
- reportAllData.forEach(x=>{
-   const d=realizationDate(x.tanggal); if(!d||d.getFullYear()!==year)return;
+ // Status tindak lanjut mengikuti RTL TVOO.
+ allData.forEach(x=>{
+   const d=parseDate(x.tanggal); if(!d||d.getFullYear()!==year)return;
    const idx=Math.floor(d.getMonth()/3),n=prog(x.progress);
    if(n>=100)data[idx].done++;
    else if(n>=50)data[idx].process++;
@@ -131,7 +129,7 @@ function renderQuarterly(){
    const pct=x.total?x.done/x.total*100:0;
    return '<tr><td><strong>'+x.name+'</strong><br><span style="font-size:11px;color:#667386">'+x.months+'</span></td><td>'+x.total+'</td><td>'+x.pending+'</td><td>'+x.process+'</td><td>'+x.done+'</td><td>'+pct.toLocaleString('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2})+'%</td></tr>';
  }).join('');
- document.getElementById('quarterNote').innerHTML='Laporan Triwulan '+year+' • TW I: Januari–Maret • TW II: April–Juni • TW III: Juli–September • TW IV: Oktober–Desember. Setiap aspirasi dihitung sebagai realisasi pada bulan berikutnya sesuai jadwal penyampaian kepada pimpinan paling lambat tanggal 10 bulan berikutnya. Total aspirasi mengikuti Form Responses 1; status tindak lanjut mengikuti RTL TVOO. Status 0% = belum ditindaklanjuti, 50–99% = telah disampaikan/dalam proses, 100% = telah mendapat arahan.';
+ document.getElementById('quarterNote').innerHTML='Laporan Triwulan '+year+' • TW I: Januari–Maret • TW II: April–Juni • TW III: Juli–September • TW IV: Oktober–Desember. Total aspirasi mengikuti Form Responses 1; status tindak lanjut mengikuti RTL TVOO. Status 0% = belum ditindaklanjuti, 50–99% = telah disampaikan/dalam proses, 100% = telah mendapat arahan.';
 }
 function load(){
  const readSheet=(id,sheet,query='')=>fetch('https://docs.google.com/spreadsheets/d/'+id+'/gviz/tq?tqx=out:json&sheet='+encodeURIComponent(sheet)+(query?'&tq='+encodeURIComponent(query):''))
@@ -141,24 +139,24 @@ function load(){
  Promise.all([readSheet(ID,SHEET),readSheet(ASP_ID,ASP_SHEET)])
  .then(([rtl,asp])=>{
    let rows=rtl.table&&rtl.table.rows?rtl.table.rows:[];
-   const mapRtlRow=r=>{let c=r.c||[],cell=i=>{let x=c[i];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''};
+   allData=rows.map(r=>{let c=r.c||[],cell=i=>{let x=c[i];return x?(x.f!==undefined&&x.f!==null?x.f:(x.v!==undefined?x.v:'')):''};
      return{tanggal:fmt(cell(0)),aspirasi:cell(1),tindakLanjut:cell(2),catatan:cell(3),progress:cell(4),status:cell(5)}
-   };
-   // Data report menyimpan tahun lintas batas agar aspirasi Desember dapat masuk realisasi Januari tahun berikutnya.
-   reportAllData=rows.map(mapRtlRow).filter(x=>String(x.aspirasi||'').trim()!=='' && parseDate(x.tanggal));
-   allData=reportAllData.filter(x=>parseDate(x.tanggal)?.getFullYear()===currentYear);
+   }).filter(x=>String(x.aspirasi||'').trim()!=='' && parseDate(x.tanggal)?.getFullYear()===currentYear);
 
    let ar=asp.table&&asp.table.rows?asp.table.rows:[];
    // Form Responses 1: kolom A adalah Timestamp.
-   reportAspirationData=ar.map(r=>{
-     const ts=(r.c||[])[0];
-     if(!ts)return null;
+   // Hanya Total Aspirasi yang menggunakan sumber ini.
+   aspirationData=ar.filter(r=>{
+     const cells=r.c||[],ts=cells[0];
+     if(!ts)return false;
      const raw=ts.v!==undefined&&ts.v!==null&&ts.v!==''?ts.v:(ts.f!==undefined&&ts.f!==null?ts.f:'');
      const d=parseDate(raw);
-     return d?raw:null;
-   }).filter(v=>v!==null);
-   // Dashboard utama tetap memakai aspirasi yang masuk pada tahun berjalan.
-   aspirationData=reportAspirationData.filter(v=>parseDate(v)?.getFullYear()===currentYear);
+     if(!d||d.getFullYear()!==currentYear)return false;
+     return true
+   }).map(r=>{
+     const ts=(r.c||[])[0];
+     return ts.v!==undefined&&ts.v!==null&&ts.v!==''?ts.v:(ts.f!==undefined&&ts.f!==null?ts.f:'');
+   });
 
    update();render();
  }).catch(e=>{document.getElementById('list').innerHTML='<div class="empty">Gagal memuat data: '+esc(e.message||e)+'</div>';document.getElementById('listFooter').textContent=''});
