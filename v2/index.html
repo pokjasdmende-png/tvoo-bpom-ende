@@ -88,7 +88,7 @@ function parseDate(v){
 function update(){
  let t=aspirationData.length,d=0,s=0;
  allData.forEach(x=>{let n=prog(x.progress);if(n>=100)d++;else if(n>=50)s++});
- let p=Math.max(0,t-d);
+ let p=Math.max(0,t-d-s);
  document.getElementById('totalCount').textContent=t;
  document.getElementById('sentCount').textContent=s;
  document.getElementById('doneCount').textContent=d;
